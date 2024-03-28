@@ -59,17 +59,30 @@ def test_get_cources(client, course_factory):
 
 
 @pytest.mark.django_db
-def test_get_filter_cources(client, course_factory):
-    courses = course_factory(_quantity=9)
-    i = 6
+#проверка фильтрации списка курсов по id:
+@pytest.mark.django_db
+def test_filter_courses_id(client, courses_factory):
+    #Arrange
+    courses = courses_factory(_quantity=10)
+    #Act
+    response = client.get('/api/v1/courses/', {'id': courses[5].id})
+    #Assert
+    data = response.json()
+    assert data[0]['id'] == courses[5].id
+    assert data[0]['name'] == courses[5].name
 
-    # Act
-    response = client.get('/api/v1/courses/', {'id': courses[i].id, 'name': courses[i].name},)
-    print(response.json())
-    # Assert
-    assert response.status_code == 200
-    assert courses[i].id == response.json()[0]['id']
-    assert courses[i].name == response.json()[0]['name']
+
+#проверка фильтрации списка курсов по name
+@pytest.mark.django_db
+def test_filter_courses_name(client, courses_factory):
+    #Arrange
+    courses = courses_factory(_quantity=10)
+    #Act
+    response = client.get('/api/v1/courses/', {'name': courses[3].name})
+    #Assert
+    data = response.json()
+    assert data[0]['name'] == courses[3].name
+    
 
 @pytest.mark.django_db
 def test_create_course(client):
@@ -88,16 +101,33 @@ def test_create_course(client):
     assert name == response3.json()['name']
 
 
+#тест успешного обновления курса
 @pytest.mark.django_db
-def test_update_delete_course(client, course_factory):
-    # тест успешного создания курса и удаления
-    # Arrange
-    courses = course_factory(_quantity=2)
-    # Act
-    response1 = client.patch(f'/api/v1/courses/{courses[0].id}/', data={'name': 'Python from zero'})
-    response2 = client.delete(f'/api/v1/courses/{courses[1].id}/')
-    response3 = client.get(f'/api/v1/courses/{courses[1].id}/')
-    # Assert
-    assert response1.status_code == 200
-    assert response2.status_code == 204
-    assert response3.status_code == 404
+def test_update_course(client, courses_factory):
+    #Arrange
+    courses = courses_factory(_quantity=10)
+    course_update = {'name': 'Django'}
+    #Act
+    response = client.patch(f'/api/v1/courses/{courses[3].id}/', data=course_update, format='json')
+    #Assert
+    assert response.status_code == 200
+    data = response.json()
+    assert data['name'] == course_update['name']
+    # print(data['name']) #для вывода на печать использовать команду pytest -s
+
+
+#тест успешного удаления курса
+@pytest.mark.django_db
+def test_delete_course(client, courses_factory):
+    #Arrange
+    courses = courses_factory(_quantity=10)
+    count = Course.objects.count()
+    course_deleted = courses[3].id
+    #Act
+    response = client.delete(f'/api/v1/courses/{courses[3].id}/')
+    #Assert
+    assert response.status_code == 204
+    assert Course.objects.count() == count - 1
+    assert not Course.objects.filter(id=course_deleted).exists()
+    response_deleted = client.get(f'/api/v1/courses/{course_deleted}/')
+    assert response_deleted.status_code == 404
